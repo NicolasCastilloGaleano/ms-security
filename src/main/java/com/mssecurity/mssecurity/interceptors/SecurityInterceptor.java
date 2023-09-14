@@ -1,8 +1,10 @@
 package com.mssecurity.mssecurity.interceptors;
 
 
+import com.mssecurity.mssecurity.services.jwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
@@ -10,11 +12,15 @@ import org.springframework.web.servlet.ModelAndView;
 @Component
 public class SecurityInterceptor implements HandlerInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
+
+    @Autowired
+    private jwtService jwtService;
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
                              Object handler)
             throws Exception {
+        boolean success = true;
         String authorizationHeader = request.getHeader("Authorization");
         if (authorizationHeader != null && authorizationHeader.startsWith(BEARER_PREFIX)) {
             String token = authorizationHeader.substring(BEARER_PREFIX.length());
@@ -24,9 +30,12 @@ public class SecurityInterceptor implements HandlerInterceptor {
             // apropiada.
             // Por simplicidad, aquí solo se muestra cómo imprimir el token.
             System.out.println("Bearer Token: " + token);
+            success= jwtService.validateToken(token);
+        }else {
+            success = false;
         }
         // Devuelve true para permitir que la solicitud continúe o false par bloquearla
-        return true;
+        return success;
     }
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response,
