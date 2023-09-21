@@ -1,6 +1,13 @@
 package com.mssecurity.mssecurity.interceptors;
 
 
+import com.mssecurity.mssecurity.Models.Permission;
+import com.mssecurity.mssecurity.Models.Role;
+import com.mssecurity.mssecurity.Models.RolePermission;
+import com.mssecurity.mssecurity.Models.User;
+import com.mssecurity.mssecurity.Repositories.PermissionRespository;
+import com.mssecurity.mssecurity.Repositories.RolePermissionRespository;
+import com.mssecurity.mssecurity.Repositories.UserRepository;
 import com.mssecurity.mssecurity.services.jwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,38 +22,72 @@ public class SecurityInterceptor implements HandlerInterceptor {
 
     @Autowired
     private jwtService jwtService;
+
+    @Autowired
+    private PermissionRespository thePermissionRepository;
+
+    @Autowired
+    private UserRepository theUserRepository;
+
+    @Autowired
+    private RolePermissionRespository theRolePermissionRepository;
+
+
+
     @Override
     public boolean preHandle(HttpServletRequest request,
                              HttpServletResponse response,
                              Object handler)
             throws Exception {
-        boolean success = true;
+
+        boolean success=true;
+
         String authorizationHeader = request.getHeader("Authorization");
         if (authorizationHeader != null && authorizationHeader.startsWith(BEARER_PREFIX)) {
             String token = authorizationHeader.substring(BEARER_PREFIX.length());
-            // Verifica el token aquí, por ejemplo, con un servicio de autenticación
-            // Si el token es válido, puedes permitir que la solicitud continúe
-            // Si no es válido, puedes rechazar la solicitud o realizar otra acción
-            // apropiada.
-            // Por simplicidad, aquí solo se muestra cómo imprimir el token.
             System.out.println("Bearer Token: " + token);
-            success= jwtService.validateToken(token);
-        }else {
-            success = false;
+            success=jwtService.validateToken(token);
+            User theUserFromToken=jwtService.getUserFromToken(token);
+            if(theUserFromToken!=null){
+                System.out.println("Nombre del usuario "+theUserFromToken.getName()+" id "+theUserFromToken.get_id());
+                User theUser=this.theUserRepository.findById(theUserFromToken.get_id())
+                        .orElse(null);
+
+                Role theRole=theUser.getRole();
+                String url=request.getRequestURI();
+                String method=request.getMethod();
+                System.out.println("Antes URL "+url+" metodo "+method);
+                url = url.replaceAll("[0-9a-fA-F]{24}", "?");
+                System.out.println("URL "+url+" metodo "+method);
+                //Pequeña tarea
+                Permission thePermission=this.thePermissionRepository.getPermission(url,method);
+                if(theRole!=null && thePermission!=null){
+                    System.out.println("Rol "+theRole.getName()+ " Permission "+thePermission.getUrl());
+                    RolePermission theRolePermission=this.theRolePermissionRepository.getRolePermission(theRole.get_id(),thePermission.get_id());
+                    if (theRolePermission==null){
+                        success=false;
+                    }
+                }else {
+                    success = false;
+                }
+            }
+
+        }else{
+            success=false;
+
         }
-        // Devuelve true para permitir que la solicitud continúe o false par bloquearla
         return success;
     }
+
     @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response,
-                           Object handler,
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
                            ModelAndView modelAndView) throws Exception {
-// Lógica a ejecutar después de que se haya manejado la solicitud por el controlador
+        // Lógica a ejecutar después de que se haya manejado la solicitud por el controlador
     }
+
     @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse
-            response, Object handler,
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler,
                                 Exception ex) throws Exception {
-// Lógica a ejecutar después de completar la solicitud, incluso después de la renderización de la vista
+        // Lógica a ejecutar después de completar la solicitud, incluso después de la renderización de la vista
     }
 }
